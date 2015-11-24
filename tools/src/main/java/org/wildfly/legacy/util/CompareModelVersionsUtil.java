@@ -280,7 +280,7 @@ public class CompareModelVersionsUtil {
         ResourceDefinition currentDefinition = new ResourceDefinition(trimSubsystem(currentResourceDefinitions), currentModelVersions);
         ResourceDefinition legacyDefinition = new ResourceDefinition(trimSubsystem(legacyResourceDefinitions), legacyModelVersions);
         CompareContext context = new CompareContext(PathAddress.EMPTY_ADDRESS, PathAddress.EMPTY_ADDRESS, true, currentDefinition, legacyDefinition);
-        if (!context.continuteWithCheck()) {
+        if (!context.continueWithCheck()) {
             return;
         }
         compareModel(context);
@@ -304,7 +304,7 @@ public class CompareModelVersionsUtil {
             ResourceDefinition currentDefinition = new ResourceDefinition(currentSubsystems.get(legacyEntry.getKey()), currentModelVersions);
             ResourceDefinition legacyDefinition = new ResourceDefinition(legacyEntry.getValue(), legacyModelVersions);
             context = new CompareContext(subsystemAddress, subsystemAddress, false, currentDefinition, legacyDefinition);
-            if (!context.continuteWithCheck()) {
+            if (!context.continueWithCheck()) {
                 continue;
             }
             compareModel(context);
@@ -647,7 +647,7 @@ public class CompareModelVersionsUtil {
             return currentDefinition;
         }
 
-        boolean continuteWithCheck() {
+        boolean continueWithCheck() {
             if (!isVersionLevel()) {
                 return true;
             }
