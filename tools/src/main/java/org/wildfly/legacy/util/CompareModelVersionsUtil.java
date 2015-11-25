@@ -39,6 +39,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.TYP
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.UNIT;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.VALUE_TYPE;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URL;
@@ -81,14 +82,14 @@ public class CompareModelVersionsUtil {
     private final PrintStream out;
 
     private CompareModelVersionsUtil(boolean compareDifferentVersions,
-                                     boolean compareRuntime,
-                                     boolean compareDeprecated,
-                                     String targetVersion,
-                                     ModelNode legacyModelVersions,
-                                     ModelNode legacyResourceDefinitions,
-                                     ModelNode currentModelVersions,
-                                     ModelNode currentResourceDefinitions,
-                                     Set<String> subsystems) throws Exception {
+            boolean compareRuntime,
+            boolean compareDeprecated,
+            String targetVersion,
+            ModelNode legacyModelVersions,
+            ModelNode legacyResourceDefinitions,
+            ModelNode currentModelVersions,
+            ModelNode currentResourceDefinitions,
+            Set<String> subsystems) throws Exception {
         this.compareDifferentVersions = compareDifferentVersions;
         this.compareRuntime = compareRuntime;
         this.targetVersion = targetVersion;
@@ -102,28 +103,17 @@ public class CompareModelVersionsUtil {
     }
 
     public static void main(String[] args) throws Exception {
-
-        if (CompareModelVersionsUtil.class.getProtectionDomain().getCodeSource().getLocation().toString().endsWith(".jar")) {
-            throw new Exception("This currently does not work as a jar. Please import a clone of https://github.com/kabir/wildfly-legacy-test into your IDE");
-        }
-
         String version = System.getProperty("jboss.as.compare.version", null);
-        String fromTgt = System.getProperty("jboss.as.compare.from.target", null);
-        String differentVersions = System.getProperty("jboss.as.compare.different.versions", null);
         String type = System.getProperty("jboss.as.compare.type", null);
         String runtime = System.getProperty("jboss.as.compare.runtime", null);
-        String deprecated = System.getProperty("jboss.as.compare.deprecated", null);
-        Set<String> subsystems = parseList(System.getProperty("jboss.as.compare.subsystems", null));
 
         if (version == null) {
-            System.out.print("Enter legacy EAP version: ");
-            version = readInput(null);
+            throw new IllegalArgumentException("jboss.as.compare.version not set");
         }
         System.out.println("Using target model: " + version);
 
         if (type == null) {
-            System.out.print("Enter type [S](standalone)/H(host)/D(domain)/F(domain + host):");
-            type = readInput("S");
+            throw new IllegalArgumentException("jboss.as.compare.type not set");
         }
         final ResourceType[] resourceTypes;
         if (ResourceType.STANDALONE.toString().startsWith(type.toUpperCase())) {
@@ -138,40 +128,12 @@ public class CompareModelVersionsUtil {
             throw new IllegalArgumentException("Could not determine type for: '" + type + "'");
         }
 
-        if (fromTgt == null) {
-            System.out.print("Read from target directory or from the legacy-models directory - t/[l]:");
-            fromTgt = readInput("l");
-        }
+        final Path fromDirectory = Tools.getProjectDirectory().resolve("target");
 
-        final Path fromDirectory;
-        if (fromTgt.equals("l")) {
-            //File projectDir = Tools.getProjectDirectory();
-            URL legacyModels = Thread.currentThread().getContextClassLoader().getResource("legacy-models");
-            fromDirectory = Paths.get(legacyModels.toURI());
-        } else if (fromTgt.equals("t")) {
-            fromDirectory = Tools.getProjectDirectory().resolve("target");
-        } else {
-            throw new IllegalArgumentException("Please enter 'l' for legacy-models directory or 't' for target directory");
-        }
-
-        if (differentVersions == null) {
-            System.out.print("Report on differences in the model when the management versions are different? [y]/n: ");
-            differentVersions = readInput("y").toLowerCase();
-        }
-        boolean compareDifferentVersions;
-        if (differentVersions.equals("n")) {
-            System.out.println("Not reporting on differences in the model when the management versions are different");
-            compareDifferentVersions = false;
-        } else if (differentVersions.equals("y")) {
-            System.out.println("Reporting on differences in the model when the management versions are different");
-            compareDifferentVersions = true;
-        } else {
-            throw new IllegalArgumentException("Please enter 'y' or 'n'");
-        }
+        boolean compareDifferentVersions = true;
 
         if (runtime == null) {
-            System.out.print("Report on differences in the model of runtime resources/attributes? y/[n]: ");
-            runtime = readInput("n").toLowerCase();
+            throw new IllegalArgumentException("jboss.as.compare.runtime not set");
         }
         boolean compareRuntime;
         if (runtime.equals("n")) {
@@ -184,25 +146,9 @@ public class CompareModelVersionsUtil {
             throw new IllegalArgumentException("Please enter 'y' or 'n'");
         }
 
-        if (deprecated == null) {
-            System.out.print("Report on differences of deprecation versions for resources/attributes? y/[n]: ");
-            deprecated = readInput("n").toLowerCase();
-        }
-        boolean compareDeprecated;
-        if (deprecated.equals("n")) {
-            System.out.println("Not reporting on differences of deprecation versions for resources/attributes.");
-            compareDeprecated = false;
-        } else if (differentVersions.equals("y")) {
-            System.out.println("Reporting on differences of deprecation versions for resources/attributes.");
-            compareDeprecated = true;
-        } else {
-            throw new IllegalArgumentException("Please enter 'y' or 'n'");
-        }
+        boolean compareDeprecated = false;
 
-        if (subsystems == null) {
-            System.out.print("If you only want to report on differences of certain subsystems enter their names as a comma-separated list (e.g. 'ejb3,jmx'): ");
-            subsystems = parseList(readInput(""));
-        }
+        Set subsystems = parseList("");
 
         System.out.println("Loading legacy model versions for " + version + "....");
         ModelNode legacyModelVersions = Tools.loadModelNodeFromFile(fromDirectory.resolve("standalone-model-versions-" + version + ".dmr"));
@@ -218,14 +164,14 @@ public class CompareModelVersionsUtil {
     }
 
     private static void doCompare(ResourceType resourceType,
-                                  Path fromDirectory,
-                                  boolean compareDifferentVersions,
-                                  boolean compareRuntime,
-                                  boolean compareDeprecated,
-                                  String targetVersion,
-                                  ModelNode legacyModelVersions,
-                                  ModelNode currentModelVersions,
-                                  Set<String> subsystems) throws Exception {
+            Path fromDirectory,
+            boolean compareDifferentVersions,
+            boolean compareRuntime,
+            boolean compareDeprecated,
+            String targetVersion,
+            ModelNode legacyModelVersions,
+            ModelNode currentModelVersions,
+            Set<String> subsystems) throws Exception {
         System.out.println("Loading legacy resource descriptions for " + targetVersion + "....");
         ModelNode legacyResourceDefinitions = Tools.loadModelNodeFromFile(fromDirectory.resolve(resourceType.toString().toLowerCase() + "-resource-definition-" + targetVersion + ".dmr"));
         System.out.println("Loaded legacy resource descriptions");
@@ -387,9 +333,9 @@ public class CompareModelVersionsUtil {
             ModelNode legacyReply = legacyOperation.get(REPLY_PROPERTIES);
             ModelNode currentReply = currentOperation.get(REPLY_PROPERTIES);
             compareAttributeOrOperationParameter(context, "'reply-properties' for operation '" + operationName + "'", currentReply, legacyReply);
-//            if (!currentReply.equals(legacyReply)) {
-//                context.println("Different 'reply-properties' for operation '" + operationName + "'. Current: " + currentReply + "; legacy: " + legacyReply);
-//            }
+            //            if (!currentReply.equals(legacyReply)) {
+            //                context.println("Different 'reply-properties' for operation '" + operationName + "'. Current: " + currentReply + "; legacy: " + legacyReply);
+            //            }
         }
     }
 
@@ -399,9 +345,7 @@ public class CompareModelVersionsUtil {
         compareNillable(context, id, current, legacy);
         compareExpressionsAllowed(context, id, current, legacy);
         compareAlternatives(context, id, current, legacy);
-        if (compareDeprecated) {
-            compareDeprecated(context, id, current, legacy);
-        }
+        compareDeprecated(context, id, current, legacy);
         //TODO compare anything else?
     }
 
@@ -438,7 +382,7 @@ public class CompareModelVersionsUtil {
         boolean currentNillable = current.get(NILLABLE).asBoolean(false);
         boolean legacyNillable = legacy.get(NILLABLE).asBoolean(false);
         boolean hasAlternativeCurrent = current.hasDefined(ALTERNATIVES);
-        
+
         if (currentNillable != legacyNillable && !hasAlternativeCurrent) {
             if (currentNillable){//than legacy wasn't
                 context.print("* ");
@@ -569,8 +513,9 @@ public class CompareModelVersionsUtil {
         }
 
         if (extraInLegacyAfterRuntime.size() > 0 || extraInCurrentAfterRuntime.size() > 0) {
-            context.println("* Missing " + type +
-                    " in current: " + extraInLegacyAfterRuntime + "; missing in legacy " + extraInCurrentAfterRuntime);
+            if (extraInLegacy.size() > 0) {
+                context.println("These " + type + " are no longer available: " + extraInLegacy);
+            }
         }
 
         if (extraInCurrent.size() > 0) {
